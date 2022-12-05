@@ -10,6 +10,7 @@ public struct CollectionView<Section: Hashable, Item: Hashable, Cell: View>: UIV
     private var willReachEdge: (Edge) -> Void
     private var willReachEdgeInsets: EdgeInsets
     private var configure: (CollectionViewConfiguration) -> Void
+    private var layout: UICollectionViewLayout?
     private var sectionLayout: (Int, NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection
     private var cell: (IndexPath, Item, CollectionViewProxy) -> Cell
 
@@ -20,6 +21,7 @@ public struct CollectionView<Section: Hashable, Item: Hashable, Cell: View>: UIV
         willReachEdge: @escaping (Edge) -> Void,
         willReachEdgeInsets: EdgeInsets,
         configure: @escaping (CollectionViewConfiguration) -> Void,
+        layout: UICollectionViewLayout?,
         sectionLayout: @escaping (Int, NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection,
         @ViewBuilder cell: @escaping (IndexPath, Item, CollectionViewProxy) -> Cell
     ) {
@@ -30,6 +32,7 @@ public struct CollectionView<Section: Hashable, Item: Hashable, Cell: View>: UIV
         self.willReachEdge = willReachEdge
         self.willReachEdgeInsets = willReachEdgeInsets
         self.configure = configure
+        self.layout = layout
         self.sectionLayout = sectionLayout
         self.cell = cell
     }
@@ -72,8 +75,11 @@ public struct CollectionView<Section: Hashable, Item: Hashable, Cell: View>: UIV
     }
 
     private func layout(context: Context) -> UICollectionViewLayout {
-        // TODO: configuration for alternate directions
-        UICollectionViewCompositionalLayout { sectionIndex, layoutEnvironment in
+        if self.layout != nil {
+            return self.layout!
+        }
+        
+        return UICollectionViewCompositionalLayout { sectionIndex, layoutEnvironment in
             context.coordinator.sectionLayout!(sectionIndex, layoutEnvironment)
         }
     }
@@ -187,6 +193,7 @@ public struct CollectionView<Section: Hashable, Item: Hashable, Cell: View>: UIV
 public extension CollectionView {
     init(
         rows: [CollectionSection<Section, Item>],
+        layout: UICollectionViewLayout? = nil,
         @ViewBuilder cell: @escaping (IndexPath, Item, CollectionViewProxy) -> Cell
     ) {
         self.init(
@@ -196,6 +203,7 @@ public extension CollectionView {
             willReachEdge: { _ in },
             willReachEdgeInsets: .zero,
             configure: { _ in },
+            layout: layout,
             sectionLayout: { _, layoutEnvironment in .grid(layoutEnvironment: layoutEnvironment) },
             cell: cell
         )
@@ -205,16 +213,17 @@ public extension CollectionView {
 public extension CollectionView where Section == Int {
     init(
         items: [Item],
+        layout: UICollectionViewLayout? = nil,
         @ViewBuilder cell: @escaping (IndexPath, Item, CollectionViewProxy) -> Cell
     ) {
-        self.init(rows: [.init(section: 0, items: items)], cell: cell)
+        self.init(rows: [.init(section: 0, items: items)], layout: layout, cell: cell)
     }
 }
 
 // MARK: functions
 
 public extension CollectionView {
-    func layout(_ sectionLayout: @escaping (Int, NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection) -> Self {
+    func sectionLayout(_ sectionLayout: @escaping (Int, NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection) -> Self {
         copy(modifying: \.sectionLayout, with: sectionLayout)
     }
 
